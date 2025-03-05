@@ -4,6 +4,8 @@ pipeline {
         DOCKER_IMAGE_NAME = "harbor.lptdevops.website/student_managerment/backend"
         DOCKER_IMAGE_TAG = "latest"
         REGISTRY_URL = "harbor.lptdevops.website"
+        ECR_REGISTRY = '418295694191.dkr.ecr.ap-southeast-1.amazonaws.com'
+        ECR_PROJECT = 'student_management_be'
     }
     stages {
         stage('Checkout') {
@@ -30,10 +32,46 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image') {
-            steps {
-                script {
-                    sh "docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+        stage('Push Docker Image & Upload to ECR') {
+            parallel {
+                stage('Push Docker Image to Harbor') {
+                    steps {
+                        script {
+                            sh "docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+                        }
+                    }
+                }
+
+                stage('Upload image to ECR') {
+                    steps {
+                        script {
+                            try {
+                                timeout(time: 5, unit: 'MINUTES') {
+                                    env.userChoice = input message: 'Do you want to push to ecr',
+                                    parameters: [
+                                        choice(name: 'Versioning Service', choices: 'no\nyes', description: 'Choose "yes" if you want to push!')
+                                    ]
+                                }
+
+                                if (env.userChoice == 'yes') {
+                                    echo "Push to ECR started..."
+                                    sh 'aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin 418295694191.dkr.ecr.ap-southeast-1.amazonaws.com'
+                                    sh 'docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${ECR_REGISTRY}/${ECR_PROJECT}:${DOCKER_IMAGE_TAG}'
+                                    sh 'docker push ${ECR_REGISTRY}/${ECR_PROJECT}:${DOCKER_IMAGE_TAG}'
+                                    echo "Push success!"
+                                } else {
+                                    echo "Push cancelled."
+                                }
+                            } catch (Exception err) {
+                                def user = err.getCauses()[0]?.getUser()
+                                if (user == null || 'SYSTEM' == user.toString()) {
+                                    echo "Timeout. Push cancelled."
+                                } else {
+                                    echo "Push cancelled by: ${user}"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
