@@ -4,7 +4,7 @@ pipeline {
         DOCKER_IMAGE_NAME = "harbor.lptdevops.website/student_managerment/backend"
         DOCKER_IMAGE_TAG = "latest"
         REGISTRY_URL = "harbor.lptdevops.website"
-        ECR_REGISTRY = '418295694191.dkr.ecr.ap-southeast-1.amazonaws.com'
+        ECR_REGISTRY = '160885258086.dkr.ecr.ap-northeast-2.amazonaws.com'
         ECR_PROJECT = 'student_management_be'
     }
     stages {
@@ -28,6 +28,7 @@ pipeline {
                     withCredentials([usernamePassword(credentialsId: 'harbor', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh "echo $DOCKER_PASS | docker login ${REGISTRY_URL} -u $DOCKER_USER --password-stdin"
                     }
+                    sh 'aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 160885258086.dkr.ecr.ap-northeast-2.amazonaws.com'
                 }
             }
         }
@@ -55,7 +56,6 @@ pipeline {
 
                                 if (env.userChoice == 'yes') {
                                     echo "Push to ECR started..."
-                                    sh 'aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin 418295694191.dkr.ecr.ap-southeast-1.amazonaws.com'
                                     sh 'docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${ECR_REGISTRY}/${ECR_PROJECT}:${DOCKER_IMAGE_TAG}'
                                     sh 'docker push ${ECR_REGISTRY}/${ECR_PROJECT}:${DOCKER_IMAGE_TAG}'
                                     echo "Push success!"
